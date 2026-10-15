@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Magic Archive - 魔法の書庫</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --shelf-color: #2c1e14;
+            --accent-color: #d4af37; /* 真鍮・金色のアクセント */
+            --text-color: #e0d8c0;
+            --card-bg: #3d2b1f;
+            --hover-bg: #4e3829;
+            --border-color: #5d4037;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Helvetica Neue', Arial, sans-serif; }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle, #2c1e14 0%, #1a1a1a 100%);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* --- Header & Search --- */
+        header {
+            background: rgba(44, 30, 20, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 2px solid var(--accent-color);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+            color: var(--accent-color);
+            text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+        }
+
+        .search-container {
+            max-width: 600px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 12px 20px;
+            background: #120a05;
+            border: 1px solid var(--border-color);
+            border-radius: 25px;
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+            transition: border 0.3s;
+        }
+
+        #searchInput:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 8px rgba(212, 175, 55, 0.5);
+        }
+
+        /* --- Main Archive Area --- */
+        main {
+            flex: 1;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .drop-zone {
+            border: 2px dashed var(--accent-color);
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            background: rgba(212, 175, 55, 0.05);
+            transition: background 0.3s;
+            cursor: pointer;
+        }
+
+        .drop-zone.dragover {
+            background: rgba(212, 175, 55, 0.2);
+            border-style: solid;
+        }
+
+        .archive-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        /* --- Card Styles --- */
+        .file-card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 15px;
+            border-left: 4px solid var(--accent-color);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .file-card:hover {
+            transform: translateY(-5px);
+            background: var(--hover-bg);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+        }
+
+        .file-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .file-icon {
+            font-size: 2rem;
+            min-width: 45px;
+            text-align: center;
+        }
+
+        .file-info {
+            overflow: hidden;
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: bold;
+            font-size: 0.95rem;
+            word-break: break-all;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+
+        .file-meta {
+            font-size: 0.75rem;
+            color: #aaa;
+        }
+
+        .file-memo {
+            background: rgba(0,0,0,0.2);
+            padding: 8px;
+            border-radius: 5px;
+            font-size: 0.85rem;
+            min-height: 40px;
+            white-space: pre-wrap;
+            border: 1px inset var(--border-color);
+            outline: none;
+        }
+
+        .file-memo:focus {
+            background: rgba(0,0,0,0.4);
+            border-color: var(--accent-color);
+        }
+
+        .card-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: auto;
+        }
+
+        button {
+            background: transparent;
+            border: 1px solid var(--accent-color);
+            color: var(--accent-color);
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: var(--accent-color);
+            color: #1a1a1a;
+        }
+
+        button.delete-btn {
+            border-color: #e57373;
+            color: #e57373;
+        }
+
+        button.delete-btn:hover {
+            background: #e57373;
+            color: #fff;
+        }
+
+        /* --- Toast Notification --- */
+        #toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent-color);
+            color: #1a1a1a;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            display: none;
+            z-index: 1000;
+        }
+
+        /* Empty State */
+        #emptyState {
+            text-align: center;
+            color: #6d4c41;
+            margin-top: 50px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>LOCAL MAGIC ARCHIVE</h1>
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="ファイル名やメモから検索（全半角・大小無視）..." oninput="filterFiles()">
+    </div>
+</header>
+
+<main>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <p>ここにファイルをドロップして書庫に保存</p>
+        <p style="font-size: 0.8rem; margin-top: 10px; opacity: 0.7;">（またはクリックして選択）</p>
+        <input type="file" id="fileInput" multiple style="display: none" onchange="handleFileSelect(event)">
+    </div>
+
+    <div id="emptyState">書庫は空です。古文書（ファイル）を保管してください。</div>
+    <div class="archive-grid" id="archiveGrid"></div>
+</main>
+
+<div id="toast">保存されました</div>
+
+<script>
+    /**
+     * 【DB設定】 IndexedDB管理クラス
+     */
+    const DB_NAME = 'MyLocalBookshelfDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'files';
+    let db;
+
+    const initDB = () => {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+            request.onerror = (e) => reject("DB Open Error");
+            request.onsuccess = (e) => {
+                db = e.target.result;
+                resolve(db);
+            };
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                }
+            };
+        });
+    };
+
+    /**
+     * ファイル保存処理
+     */
+    async function saveFiles(files) {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+
+        for (const file of files) {
+            const fileData = {
+                id: Date.now() + Math.random().toString(36).substr(2, 9),
+                filename: file.name,
+                fileData: file, // Blobを直接保存
+                type: file.name.split('.').pop().toLowerCase(),
+                size: file.size,
+                memo: '',
+                timestamp: new Date().toLocaleString()
+            };
+            store.add(fileData);
+        }
+
+        tx.oncomplete = () => {
+            showToast(`${files.length}件のファイルを保存しました`);
+            loadFiles();
+        };
+    }
+
+    /**
+     * ファイル一覧ロード
+     */
+    function loadFiles() {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.getAll();
+
+        request.onsuccess = () => {
+            renderList(request.result);
+        };
+    }
+
+    /**
+     * メモ更新
+     */
+    function updateMemo(id, newMemo) {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const getReq = store.get(id);
+
+        getReq.onsuccess = () => {
+            const data = getReq.result;
+            data.memo = newMemo;
+            store.put(data);
+        };
+    }
+
+    /**
+     * 削除処理
+     */
+    function deleteFile(id) {
+        if (!confirm('このファイルを魔法の書庫から抹消しますか？')) return;
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.delete(id);
+        tx.oncomplete = () => loadFiles();
+    }
+
+    /**
+     * ダウンロード（復元）
+     */
+    function downloadFile(id) {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(id);
+
+        req.onsuccess = () => {
+            const data = req.result;
+            const url = URL.createObjectURL(data.fileData);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = data.filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        };
+    }
+
+    /**
+     * UIレンダリング
+     */
+    function renderList(files) {
+        const grid = document.getElementById('archiveGrid');
+        const empty = document.getElementById('emptyState');
+        const searchQuery = document.getElementById('searchInput').value.toLowerCase().normalize("NFKC");
+
+        // 検索フィルタリング
+        const filtered = files.filter(f => {
+            const name = f.filename.toLowerCase().normalize("NFKC");
+            const memo = f.memo.toLowerCase().normalize("NFKC");
+            return name.includes(searchQuery) || memo.includes(searchQuery);
+        });
+
+        grid.innerHTML = '';
+        empty.style.display = filtered.length ? 'none' : 'block';
+
+        filtered.sort((a, b) => b.id - a.id).forEach(file => {
+            const card = document.createElement('div');
+            card.className = 'file-card';
+            
+            // アイコン判定
+            let icon = '📄';
+            if (['jpg','jpeg','png','gif','svg'].includes(file.type)) icon = '🖼️';
+            if (['pdf'].includes(file.type)) icon = '📕';
+            if (['xls','xlsx','csv'].includes(file.type)) icon = '📊';
+            if (['doc','docx'].includes(file.type)) icon = '📝';
+            if (['zip','7z','rar'].includes(file.type)) icon = '📦';
+            if (['mp4','mov','avi'].includes(file.type)) icon = '🎬';
+
+            const sizeStr = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+
+            card.innerHTML = `
+                <div class="file-header">
+                    <div class="file-icon">${icon}</div>
+                    <div class="file-info">
+                        <div class="file-name">${file.filename}</div>
+                        <div class="file-meta">${file.timestamp} | ${sizeStr}</div>
+                    </div>
+                </div>
+                <div class="file-memo" contenteditable="true" onblur="updateMemo('${file.id}', this.innerText)" placeholder="メモを入力...">${file.memo}</div>
+                <div class="card-actions">
+                    <button onclick="downloadFile('${file.id}')">取り出す</button>
+                    <button class="delete-btn" onclick="deleteFile('${file.id}')">削除</button>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    /**
+     * 検索フィルタ発火
+     */
+    function filterFiles() {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.getAll();
+        request.onsuccess = () => renderList(request.result);
+    }
+
+    /**
+     * トースト通知
+     */
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.innerText = msg;
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 2500);
+    }
+
+    /**
+     * イベントリスナー設定
+     */
+    const dropZone = document.getElementById('dropZone');
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0) saveFiles(files);
+    });
+
+    function handleFileSelect(e) {
+        const files = Array.from(e.target.files);
+        if (files.length > 0) saveFiles(files);
+    }
+
+    // 初期化
+    window.onload = async () => {
+        await initDB();
+        loadFiles();
+    };
+</script>
+
+</body>
+</html>
